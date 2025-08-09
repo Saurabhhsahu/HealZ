@@ -19,8 +19,9 @@ function Profile({ darkMode }) {
   const [isEditing, setIsEditing] = useState(false)
   const [activeTab, setActiveTab] = useState("personal")
   const [isSaving, setIsSaving] = useState(false)
-
-  console.log("profile : ", profile.user);
+  
+  // State to hold the actual file for upload
+  const [profileImageFile, setProfileImageFile] = useState(null);
 
   // Default user data structure
   const defaultUser = {
@@ -70,6 +71,7 @@ function Profile({ darkMode }) {
         ...currentUser.emergencyContact
       }
     })
+    setProfileImageFile(null); // Reset file on edit start
     setIsEditing(true)
   }
 
@@ -96,29 +98,50 @@ function Profile({ darkMode }) {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      console.log("Saving profile data:", formData)
+      // Use FormData to handle multipart/form-data for file uploads
+      const dataToSave = new FormData();
 
-      // Update the profile context
-      await updateProfile(formData)
+      // Append all form fields from the formData state
+      Object.keys(formData).forEach(key => {
+        // Handle nested objects by stringifying them, as the backend expects
+        if (key === 'emergencyContact' && typeof formData[key] === 'object') {
+          dataToSave.append(key, JSON.stringify(formData[key]));
+        } else if (key !== 'profileImage') { // Don't append the old image URL
+           dataToSave.append(key, formData[key]);
+        }
+      });
+      
+      // Append the new profile image file if one was selected
+      if (profileImageFile) {
+        dataToSave.append('profileImage', profileImageFile);
+      }
+      
+      console.log("Saving profile data..."); // FormData objects are hard to log directly
 
-      // Update local user state immediately
-      setUser(formData)
+      // The updateProfile function from your context now receives FormData
+      const updatedUser = await updateProfile(dataToSave);
+
+      // Update local user state with the response from the server
+      if(updatedUser) {
+        setUser(updatedUser);
+      } else {
+        // Fallback to optimistic update if API doesn't return updated user
+        setUser(formData);
+      }
 
       setIsEditing(false)
+      setProfileImageFile(null); // Clear the file after saving
 
-      // Optional: Show success message
       console.log("Profile updated successfully!")
 
     } catch (error) {
       console.error("Error saving profile:", error)
-      // Optional: Show error message to user
     } finally {
       setIsSaving(false)
     }
   }
 
   const handleCancel = () => {
-    // Reset form data to current user data
     const currentUser = getCurrentUser()
     setFormData({
       ...currentUser,
@@ -126,28 +149,43 @@ function Profile({ darkMode }) {
         ...currentUser.emergencyContact
       }
     })
+    setProfileImageFile(null); // Reset file on cancel
     setIsEditing(false)
   }
+
+  const fileInputRef = useRef(null);
+
+  const handleAvatarClick = () => {
+    if (isEditing && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Store the actual file for upload
+      setProfileImageFile(file);
+      
+      // Create a temporary local URL for previewing the image
+      const imageUrl = URL.createObjectURL(file);
+      
+      // Update formData to show the new image preview immediately
+      setFormData(prev => ({
+        ...prev,
+        profileImage: imageUrl
+      }));
+    }
+  };
 
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
-      },
-    },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } },
   }
-
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: { type: "spring", stiffness: 100 },
-    },
+    visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100 } },
   }
 
   // Set colors based on dark mode
@@ -159,33 +197,9 @@ function Profile({ darkMode }) {
   const inputBgColor = darkMode ? "bg-gray-700" : "bg-muted/20";
   const inputTextColor = darkMode ? "text-gray-300" : "text-gray-700";
   const iconColor = darkMode ? "text-gray-400" : "text-gray-500";
-
-  const fileInputRef = useRef(null);
-
-  const handleAvatarClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Optional: Preview image logic
-      const imageUrl = URL.createObjectURL(file);
-
-      // Trigger same handleInputChange logic
-      handleInputChange({
-        target: {
-          name: "profileImage",
-          value: imageUrl,
-        },
-      });
-
-      // If uploading to server, handle it separately
-      // uploadImageToServer(file)
-    }
-  };
+  
+  // Determine which image to display (live preview or saved user image)
+  const displayImage = isEditing && formData.profileImage ? formData.profileImage : user.profileImage;
 
 
   return (
@@ -199,7 +213,7 @@ function Profile({ darkMode }) {
       <motion.div className="flex flex-col items-center mb-6 sm:mb-8" variants={itemVariants}>
         <div className="relative mb-4 group">
           <Avatar className="h-24 w-24 sm:h-32 sm:w-32 border-4 border-[#00bf60] shadow-xl">
-            <AvatarImage src={user.profileImage} alt={user.name} />
+            <AvatarImage src={displayImage} alt={user.name} />
             <AvatarFallback className={`text-3xl sm:text-4xl bg-[#e6f7ef] text-[#00bf60]`}>
               {user.name
                 .split(" ")

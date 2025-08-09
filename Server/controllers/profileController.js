@@ -12,6 +12,7 @@ import appointmentModel from "../models/appointmentModel.js";
 
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import cloudinary from "../config/cloudinary.js";
 
 const modelMap = {
     user: User,
@@ -27,7 +28,7 @@ const modelMap = {
 const signup = async (req, res) => {
     try {
         const { name, age, gender, bloodGroup, contact, email, password, emergencyContact, profileImage, pin } = req.body;
-        console.log("Signup request body:", req.body);
+        // console.log("Signup request body:", req.body);
         
         // Validate required fields
         if (!name || !age || !gender || !bloodGroup || !contact || !email || !password || !pin) {
@@ -39,7 +40,7 @@ const signup = async (req, res) => {
 
         // Check if the user already exists
         const existingUser = await User.findOne({ email });
-        console.log("existingUser : ", existingUser);
+        // console.log("existingUser : ", existingUser);
         
         if (existingUser) {
             return res.status(400).json({
@@ -48,12 +49,12 @@ const signup = async (req, res) => {
             });
         }
 
-        console.log("no user found with this email, proceeding to create a new user");
+        // console.log("no user found with this email, proceeding to create a new user");
         
 
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
-        console.log("current before hashedPassword : ");
+        // console.log("current before hashedPassword : ");
         const hashedPin = await bcrypt.hash(pin, 10);
 
         // Create new user
@@ -132,7 +133,7 @@ const signin = async (req, res) => {
         const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
             expiresIn: "7d",
         });
-        console.log(token);
+        // console.log(token);
 
         return res.status(200).json({
             success: true,
@@ -388,49 +389,58 @@ const listAppointments = async (req, res) => {
     }
 }
 
+const uploadToCloudinary = (fileBuffer) => {
+    return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+            { resource_type: "auto" },
+            (error, result) => {
+                if (error) {
+                    console.error("Cloudinary upload error:", error);
+                    return reject(new Error("Image upload failed."));
+                }
+                resolve(result);
+            }
+        );
+        uploadStream.end(fileBuffer);
+    });
+};
+
 const updateProfile = async (req, res) => {
     try {
-        const userId = req.userId; // assuming authentication middleware adds this
-        const {
-            name,
-            age,
-            gender,
-            bloodGroup,
-            contact,
-            email,
-            pin,
-            emergencyContact,
-            profileImage
-        } = req.body;
+        const userId = req.userId;
+        const { name, age, gender, bloodGroup, contact, email, pin, emergencyContact } = req.body;
 
-        // console.log("Updating profile for userId:", userId);
-
-        // Find user by ID
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
 
-        // Update fields if provided
+        // Handle Profile Image Upload
+        if (req.file) {
+            const result = await uploadToCloudinary(req.file.buffer);
+            user.profileImage = result.secure_url; // Update the image URL
+        }
+
+        // Update other fields if provided
         if (name) user.name = name;
         if (age) user.age = age;
         if (gender) user.gender = gender;
         if (bloodGroup) user.bloodGroup = bloodGroup;
         if (contact) user.contact = contact;
         if (email) user.email = email;
-        if (pin) user.pin = pin;
-        if (profileImage) user.profileImage = profileImage;
+        // Note: Be careful about updating PINs this way. You might want a separate, more secure endpoint.
+        if (pin) user.pin = await bcrypt.hash(pin, 10); // Always re-hash PIN/password
 
         if (emergencyContact) {
-            user.emergencyContact.name = emergencyContact.name || user.emergencyContact.name;
-            user.emergencyContact.relation = emergencyContact.relation || user.emergencyContact.relation;
-            user.emergencyContact.phone = emergencyContact.phone || user.emergencyContact.phone;
+            const parsedEmergencyContact = typeof emergencyContact === 'string' ? JSON.parse(emergencyContact) : emergencyContact;
+            user.emergencyContact.name = parsedEmergencyContact.name || user.emergencyContact.name;
+            user.emergencyContact.relation = parsedEmergencyContact.relation || user.emergencyContact.relation;
+            user.emergencyContact.phone = parsedEmergencyContact.phone || user.emergencyContact.phone;
         }
 
         await user.save();
 
         console.log("Profile updated successfully for userId:", userId);
-        
 
         res.status(200).json({ success: true, message: "Profile updated successfully", user });
     } catch (err) {

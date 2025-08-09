@@ -54,7 +54,6 @@ const PatientProfile = ({ darkMode }) => {
           </div>
           <div className="text-center sm:text-left w-full">
             <h3 className={`text-lg font-medium ${textColor}`}>{patient.name}</h3>
-            <p className={`text-sm ${secondaryTextColor}`}>Patient ID: #{Math.floor(Math.random() * 10000).toString().padStart(4, '0')}</p>
           </div>
         </div>
 
