@@ -11,6 +11,8 @@ export const UserProvider = ({ children }) => {
     const [doctors, setDoctors] = useState([]);
     const navigate = useNavigate();
 
+    const backendUri = import.meta.env.VITE_BACKEND_URI || "${backendUri}";
+
     const modelMap = {
         user: "User",
         glucoseTrends: "GlucoseTrend",
@@ -23,7 +25,7 @@ export const UserProvider = ({ children }) => {
 
     const signin = async ({ email, password }) => {
         try {
-            const res = await axios.post(`http://localhost:3000/api/user/signin`, { email, password });
+            const res = await axios.post(`${backendUri}/api/user/signin`, { email, password });
             if (!res.data.success) {
                 console.log("Error in signing in:", res);
                 return;
@@ -40,7 +42,7 @@ export const UserProvider = ({ children }) => {
         console.log("Signup request body:", userData);
         
         try {
-            const res = await axios.post(`http://localhost:3000/api/user/signup`, userData);
+            const res = await axios.post(`${backendUri}/api/user/signup`, userData);
             if (!res.data.success) {
                 console.log("Error in signing up:", res);
                 return;
@@ -56,7 +58,7 @@ export const UserProvider = ({ children }) => {
     const getProfileDetails = async (detailType) => {
         try {
             const res = await axios.post(
-                `http://localhost:3000/api/user/getUserDetail`,
+                `${backendUri}/api/user/getUserDetail`,
                 { detailType },
                 { headers: { Authorization: `${token}` } }
             );
@@ -75,7 +77,7 @@ export const UserProvider = ({ children }) => {
 
     const fetchAppointments = async () => {
         try {
-            const res = await axios.get(`http://localhost:3000/api/user/list-appointment`, {
+            const res = await axios.get(`${backendUri}/api/user/list-appointment`, {
                 headers: { Authorization: `${token}` }
             });
             setAppointments(res.data.appointments);
@@ -86,7 +88,7 @@ export const UserProvider = ({ children }) => {
 
     const fetchDoctors = async () => {
         try {
-            const res = await axios.get(`http://localhost:3000/api/doctor/list`);
+            const res = await axios.get(`${backendUri}/api/doctor/list`);
             setDoctors(res.data.doctors);
         } catch (error) {
             console.log("Error in fetching doctors:", error);
@@ -95,7 +97,7 @@ export const UserProvider = ({ children }) => {
 
     const updateProfile = async (updateData) => {
         try {
-            const res = await axios.post(`http://localhost:3000/api/user/update-profile`, updateData, {
+            const res = await axios.post(`${backendUri}/api/user/update-profile`, updateData, {
                 headers: { Authorization: `${token}` }
             });
             if (!res.data.success) {

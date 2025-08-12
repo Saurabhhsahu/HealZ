@@ -124,9 +124,10 @@ function Appointments() {
       let year = date.getFullYear();
 
       const slotDate = `${day}_${month}_${year}`;
+      const backendUri = import.meta.env.VITE_BACKEND_URI || backendUrl;
 
       const { data } = await axios.post(
-        `http://localhost:3000/api/user/book-appointment`,
+        `${backendUri}/api/user/book-appointment`,
         { docId, slotDate, slotTime },
         { headers: { Authorization : token } }
       );
