@@ -4,10 +4,10 @@ import JoinScreen from "./JoinScreen";
 import MeetingView from "./MeetingView";
 import { authToken, createMeeting } from "@/Api";
 import { useParams } from "react-router-dom";
-import { useUser } from "@/context/userContext";
+import { DoctorContext } from '../../../Context/DoctorContext.jsx';
 
 function VideoCall() {
-  const { appointments } = useUser();
+  const { appointments } = useContext(DoctorContext);
   const { appointmentId } = useParams();
 
   const [meetingId, setMeetingId] = useState(null);

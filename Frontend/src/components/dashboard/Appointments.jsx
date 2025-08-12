@@ -1,18 +1,20 @@
 import React, { useState } from "react";
 import { useUser } from "../../context/userContext";
-import { Calendar, MapPin, ExternalLink, FileText, Video, User, Phone, Clock, CheckCircle } from "lucide-react";
+import { Calendar, MapPin, Video, User, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import Payment from "./Payment"; // Import the new Payment component
+import Payment from "./Payment"; // Assuming Payment component exists
 
 const Appointments = ({ darkMode }) => {
   const { appointments } = useUser();
   const navigate = useNavigate();
 
-  const appointmentData = appointments ? appointments : [];
+  // Use an empty array as a fallback if appointments are not yet loaded
+  const appointmentData = appointments || [];
 
+  // Sort appointments to show active video calls first, then by date
   const sortedAppointments = [...appointmentData].sort((a, b) => {
     const aIsVideoCall = checkIfVideoCallOngoing(a);
     const bIsVideoCall = checkIfVideoCallOngoing(b);
@@ -63,12 +65,14 @@ const Appointments = ({ darkMode }) => {
   );
 };
 
+// Helper function to parse date and time
 const parseAppointmentDateTime = (slotDate, slotTime) => {
   const [day, month, year] = slotDate.split('_');
   const dateStr = `${month}/${day}/${year} ${slotTime}`;
   return new Date(dateStr);
 };
 
+// Helper function to check if a call is ongoing
 const checkIfVideoCallOngoing = (appointment) => {
   const appointmentDateTime = parseAppointmentDateTime(appointment.slotDate, appointment.slotTime);
   const currentTime = new Date();
@@ -80,6 +84,7 @@ const checkIfVideoCallOngoing = (appointment) => {
   const isLive = isToday && Math.abs(timeDiff) <= 15 * 60 * 1000;
   return appointment.videoCallActive || (isLive && isPaid && !isCompleted && !isCancelled);
 };
+
 
 const AppointmentCard = ({ appointment, darkMode }) => {
   const navigate = useNavigate();
@@ -93,10 +98,12 @@ const AppointmentCard = ({ appointment, darkMode }) => {
   const isPaid = appointment.payment;
   const isToday = appointmentDateTime.toDateString() === currentTime.toDateString();
   const timeDiff = appointmentDateTime.getTime() - currentTime.getTime();
+  
+  // A call is available 30 mins before and up to 1 hour after the scheduled time
   const isCallAvailable = isToday && timeDiff <= 30 * 60 * 1000 && timeDiff >= -60 * 60 * 1000;
   const isLive = isToday && Math.abs(timeDiff) <= 15 * 60 * 1000;
   const isFuture = appointmentDateTime > currentTime;
-  const isVideoCallOngoing = appointment.videoCallActive || (isLive && isPaid && !isCompleted && !isCancelled);
+  const isVideoCallOngoing = checkIfVideoCallOngoing(appointment);
 
   const getStatus = () => {
     if (isCancelled) return { text: "Cancelled", color: "red" };
@@ -110,11 +117,19 @@ const AppointmentCard = ({ appointment, darkMode }) => {
 
   const status = getStatus();
 
+  const handleJoinCall = () => {
+    setIsJoiningCall(true);
+    navigate(`/video-call/${appointment._id}`);
+  };
+
   const handlePaymentSuccess = (details) => {
     console.log("Payment Successful:", details);
     alert(`Payment successful! Transaction ID: ${details.id}`);
     // Here you would typically update the appointment status in your backend
+    // and refresh the user's appointment data.
     setShowPayment(false);
+    // For demonstration, we can force a reload to show the new state.
+    window.location.reload(); 
   };
 
   const handlePaymentError = (error) => {
@@ -139,48 +154,78 @@ const AppointmentCard = ({ appointment, darkMode }) => {
           onCancel={handlePaymentCancel}
         />
       )}
-      <div className={`p-2 rounded-xl border ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} transition-all shadow-sm`}>
-        {/* Card content remains the same, only the "Pay Now" button logic changes */}
-        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-2 sm:gap-0">
-          <div className="flex items-start gap-3">
-            <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center flex-shrink-0 ${isCompleted ? "bg-gray-50 text-gray-500" : "bg-[#e6f7ef] text-[#00bf60]"}`}>
-              {isCompleted ? <FileText size={18} /> : <User size={18} />}
+      <div className={`p-3 rounded-xl border ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"} transition-all shadow-sm`}>
+        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3">
+          <div className="flex items-start gap-4">
+            <div className={`h-12 w-12 rounded-full flex items-center justify-center flex-shrink-0 ${isCompleted ? "bg-gray-100 text-gray-500" : "bg-[#e6f7ef] text-[#00bf60]"}`}>
+              {isCompleted ? <FileText size={22} /> : <User size={22} />}
             </div>
             <div>
-              <h3 className={`font-medium text-sm sm:text-base ${darkMode ? "text-white" : "text-gray-900"}`}>{appointment.docData.name}</h3>
-              <p className={`text-xs sm:text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{appointment.docData.speciality}</p>
-              <div className={`flex items-center mt-1 text-xs sm:text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
-                <MapPin className="h-3 w-3 mr-1" /> {appointment.docData.address.line1}, {appointment.docData.address.line2}
+              <h3 className={`font-semibold text-base ${darkMode ? "text-white" : "text-gray-900"}`}>{appointment.docData.name}</h3>
+              <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{appointment.docData.speciality}</p>
+              <div className={`flex items-center mt-1 text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                <MapPin className="h-4 w-4 mr-1.5" /> {appointment.docData.address.line1}, {appointment.docData.address.line2}
               </div>
             </div>
           </div>
-          <div className="text-left sm:text-right ml-10 sm:ml-0 mt-1 sm:mt-0">
-            <p className={`text-xs sm:text-sm font-medium ${darkMode ? "text-white" : "text-gray-900"}`}>{appointmentDateTime.toLocaleDateString()} at {appointment.slotTime}</p>
-            <div className="flex flex-col gap-1 mt-1">
-              <Badge className={`font-normal text-xs ${status.color === 'green' ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-700"}`}>{status.text}</Badge>
-              {isPaid && <Badge className="font-normal text-xs bg-[#e6f7ef] text-[#00bf60]"><CheckCircle size={10} className="mr-1" />Paid</Badge>}
+          <div className="text-left sm:text-right ml-16 sm:ml-0 mt-2 sm:mt-0">
+            <p className={`text-sm font-medium ${darkMode ? "text-white" : "text-gray-900"}`}>{appointmentDateTime.toLocaleDateString()} at {appointment.slotTime}</p>
+            <div className="flex flex-col items-start sm:items-end gap-1 mt-2">
+              <Badge className={`font-medium text-xs ${status.color === 'green' ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"}`}>{status.text}</Badge>
             </div>
           </div>
         </div>
-        <div className="mt-2 ml-10 sm:ml-12">
-          <p className={`text-xs sm:text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Fee: ${appointment.amount}</p>
-        </div>
-        <div className="mt-3 sm:mt-4 ml-10 sm:ml-16">
-          {(() => {
-            if (isFuture && !isPaid && !isCancelled) {
-              return (
-                <div className="flex gap-2 flex-wrap">
-                  <Button onClick={() => setShowPayment(true)} size="sm" className="text-xs h-8 px-2 py-1 bg-[#00bf60] hover:bg-[#00a050] text-white">
-                    Pay Now (${appointment.amount})
-                  </Button>
-                  <Button variant="outline" size="sm" className="text-xs h-8 px-2 py-1 border-[#e6f7ef] hover:border-[#00bf60] text-[#00bf60]">Reschedule</Button>
-                  <Button variant="outline" size="sm" className="text-xs h-8 px-2 py-1 border-red-200 text-red-600">Cancel</Button>
-                </div>
-              );
-            }
-            // Other button states remain the same
-            return null;
-          })()}
+        
+        <div className="mt-4 ml-0 sm:ml-16 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <p className={`text-sm font-semibold ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                Fee: <span className="text-green-600">${appointment.amount}</span>
+                {isPaid && <Badge variant="outline" className="ml-2 border-green-300 bg-green-50 text-green-700">Paid</Badge>}
+            </p>
+            <div className="flex gap-2 flex-wrap">
+                {(() => {
+                    // Case 1: Paid and within the call window
+                    if (isPaid && !isCompleted && !isCancelled && isCallAvailable) {
+                        return (
+                            <Button
+                                onClick={handleJoinCall}
+                                disabled={isJoiningCall}
+                                size="sm"
+                                className="h-9 px-4 bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 transition-all"
+                            >
+                                {isJoiningCall ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                        <span>Joining...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Video size={16} />
+                                        <span>Join Video Call</span>
+                                    </>
+                                )}
+                            </Button>
+                        );
+                    }
+                    // Case 2: Upcoming but not paid
+                    if (isFuture && !isPaid && !isCancelled) {
+                        return (
+                            <>
+                                <Button onClick={() => setShowPayment(true)} size="sm" className="h-9 px-4 bg-[#00bf60] hover:bg-[#00a050] text-white">
+                                    Pay Now
+                                </Button>
+                                <Button variant="outline" size="sm" className="h-9 px-4">Reschedule</Button>
+                                <Button variant="destructive" size="sm" className="h-9 px-4">Cancel</Button>
+                            </>
+                        );
+                    }
+                    // Case 3: Completed
+                    if (isCompleted) {
+                        return <Button variant="outline" size="sm" className="h-9 px-4">View Prescription</Button>
+                    }
+                    // Default: No actions available (e.g., missed, cancelled)
+                    return null;
+                })()}
+            </div>
         </div>
       </div>
     </>
@@ -191,7 +236,7 @@ const EmptyState = ({ icon, message, darkMode }) => (
   <div className="flex flex-col items-center justify-center h-full text-center p-6 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
     <div className="mb-3">{icon}</div>
     <p className={`text-sm font-medium ${darkMode ? "text-gray-400" : "text-gray-500"}`}>{message}</p>
-    <p className={`text-xs mt-1 ${darkMode ? "text-gray-500" : "text-gray-400"}`}>Your appointments will appear here.</p>
+    <p className={`text-xs mt-1 ${darkMode ? "text-gray-500" : "text-gray-400"}`}>Your scheduled appointments will appear here.</p>
   </div>
 );
 
