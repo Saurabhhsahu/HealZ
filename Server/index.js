@@ -7,6 +7,7 @@ import connectDB from './config/db.js';
 import userRouter from './routes/userRoutes.js';
 import adminRouter from './routes/adminRoutes.js';
 import doctorRouter from './routes/doctorRoutes.js';
+import paymentRouter from './routes/paymentRoutes.js';
 // import meetingRouter from './routes/MeetingRoutes.js';
 
 const app = express();
@@ -20,6 +21,7 @@ app.use(cors());
 app.use('/api/user', userRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/doctor', doctorRouter);
+app.use('/api/paypal', paymentRouter);
 // app.use('/api/meeting', meetingRouter);
 
 // DB Connection
