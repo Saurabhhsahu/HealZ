@@ -1,9 +1,12 @@
 import React, { useEffect, useRef } from "react";
+import axios from "axios";
+import { useUser } from "../../context/userContext";
 
 const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID; // sandbox or live
 const BACKEND_URI = import.meta.env.VITE_BACKEND_URI;
 
 const Payment = ({ amount, appointmentId, onSuccess, onError, onCancel }) => {
+  const { token } = useUser();
   const paypalRef = useRef(null);
 
   useEffect(() => {
@@ -32,26 +35,24 @@ const Payment = ({ amount, appointmentId, onSuccess, onError, onCancel }) => {
   const renderButtons = () => {
     window.paypal.Buttons({
       createOrder: async () => {
-        const res = await fetch(`${BACKEND_URI}/api/paypal/create-order`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            amount,
-            appointmentId,
-          }),
+        const res = await axios.post(`${BACKEND_URI}/api/paypal/create-order`, {
+          amount,
+          appointmentId,
+        }, {
+          headers: {
+            Authorization: token,
+          },
         });
-
-        const data = await res.json();
-        return data.id;
+        return res.data.id;
       },
 
       onApprove: async (data) => {
-        const res = await fetch(
-          `${BACKEND_URI}/api/paypal/capture-order/${data.orderID}`,
-          { method: "POST" }
-        );
-        const details = await res.json();
-        onSuccess(details);
+        const res = await axios.post(`${BACKEND_URI}/api/paypal/capture-order/${data.orderID}`, {}, {
+          headers: {
+            Authorization: token,
+          },
+        });
+        onSuccess(res.data);
       },
 
       onError: (err) => {
